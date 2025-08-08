@@ -2,6 +2,20 @@ import logging
 from typing import Optional
 
 from langchain_core.callbacks import BaseCallbackHandler
+from typing import Callable, Optional as _Optional
+
+
+_log_sink: _Optional[Callable[[str], None]] = None
+
+
+def set_log_sink(sink: _Optional[Callable[[str], None]]) -> None:
+    """Set a callable to receive log_print lines instead of printing.
+
+    The sink receives each fully formatted line (e.g. "[DB] ...").
+    Pass None to restore default printing to stdout.
+    """
+    global _log_sink
+    _log_sink = sink
 
 
 def setup_logging(verbose: bool) -> logging.Logger:
@@ -61,5 +75,12 @@ class VerboseCallback(BaseCallbackHandler):
 
 def log_print(prefix: str, text: str) -> None:
     for line in text.splitlines():
-        print(f"[{prefix}] {line}")
-
+        formatted = f"[{prefix}] {line}"
+        if _log_sink is not None:
+            try:
+                _log_sink(formatted)
+            except Exception:
+                # Fallback to stdout if sink fails
+                print(formatted)
+        else:
+            print(formatted)

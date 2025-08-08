@@ -33,6 +33,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Cypher REPL for AGE/PostgreSQL")
     parser.add_argument("files", nargs="*", help="Cypher files to load and execute")
     parser.add_argument("-e", "--execute", action="store_true", help="Execute files and exit (do not start REPL)")
+    parser.add_argument("-t", "--tui", action="store_true", help="Launch the Textual TUI instead of the standard REPL")
     parser.add_argument("-s", "--system-prompt", help="Path to a file containing a system prompt for the LLM")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output (show stack traces on errors)")
     args = parser.parse_args()
@@ -76,6 +77,19 @@ def main() -> None:
             if args.verbose:
                 raise
             print(f"Initialization error: {e}")
+            return
+
+        if args.tui:
+            from .tui import run_tui
+
+            # If only executing files in batch mode
+            if args.execute:
+                if args.files:
+                    load_and_execute_files(cur, conn, args.files, settings, logger if args.verbose else None)
+                print("\nExecution complete.")
+                return
+
+            run_tui(cur, conn, settings, system_prompt, verbose=args.verbose, files=args.files or None, execute_only=args.execute)
             return
 
         log_enabled = False
@@ -201,4 +215,3 @@ def main() -> None:
             cur.close()
         finally:
             conn.close()
-

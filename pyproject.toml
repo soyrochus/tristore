@@ -12,6 +12,7 @@ dependencies = [
     "prompt-toolkit>=3.0.51",
     "psycopg2-binary>=2.9.10",
     "python-dotenv>=1.1.1",
+    "textual>=5.3.0",
 ]
 
 [dependency-groups]
