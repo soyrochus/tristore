@@ -1,233 +1,218 @@
-#  Step-by-step setup for a PostgreSQL “TriStore” for Reagent
+# TriStore Cypher LLM REPL
 
-## Introduction
+![Python Version](https://img.shields.io/badge/Python-3.13%2B-blue)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-Experimental-orange)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-informational)
+![Graph Engine](https://img.shields.io/badge/Apache%20AGE-openCypher-purple)
+![Vectors](https://img.shields.io/badge/pgvector-enabled-blueviolet)
 
-Below is a hands-on, step-by-step setup for a PostgreSQL “TriStore” (Structured \+ Graph \+ Vector) in a single Docker container, including:
+Natural‑language & Cypher exploration of a PostgreSQL "TriStore" (Relational + Graph + Vectors) powered by Apache AGE and pgvector.
 
-* PostgreSQL 16  
-* pgvector (vector search, open source)  
-* Apache AGE (property graph with openCypher, open source)
+**Components in this repo**
 
-This is a fully open-source, self-contained approach.
+| Part | What it is | Folder / File |
+|------|------------|---------------|
+| Interactive REPL (LLM + direct Cypher) - 2 versions | Query graph with natural language or raw Cypher | `cypher_llm_repl.py`, `cypherrepl/` |
+| Detailed REPL manual | Full feature & usage guide | `REPL-MANUAL.md` |
+| Cypher cheat sheet & how‑to | Quick Cypher reminders | `Cypher Cheat Sheet and How-To Guide.md` |
+| Dockerized Postgres 16 + AGE + pgvector | Single container tri-store | `Dockerfile`, `init-tristore.sql` |
+| Sample graph init | Optional starting graph | `init_graph.cypher` |
 
-## 1\. **Create a Dockerfile**
 
-This Dockerfile builds on the official Postgres image, installs `pgvector`, and compiles Apache AGE from source. It also enables both extensions by default.
+---
 
-\# syntax=docker/dockerfile:1
+## 1. REPL Overview (Primary Focus)
 
-FROM postgres:16
+The Cypher LLM REPL lets you:
 
-\# Install build dependencies and git
+* Use plain English (LLM mode) → translated into Cypher and executed
+* Fall back to direct Cypher mode instantly (`\llm off` / `\llm on`)
+* Run multiple Cypher statements in one line (semicolon separated)
+* Auto-detect return columns & format nodes, edges, and paths
+* Persist command history between sessions
+* Optionally log: natural language → generated Cypher → DB results
 
-RUN apt-get update \\
+See the full manual in `REPL-MANUAL.md` for screenshots, examples, tips.
 
-    && apt-get install \-y \--no-install-recommends \\
+### 1.1 Key Commands (inline recap)
+| Command | Description |
+|---------|-------------|
+| `\q` | Quit |
+| `\h` | Help summary |
+| `\llm on|off` | Toggle natural language mode |
+| `\log on|off` | Toggle verbose interaction logging |
 
-        build-essential \\
+### 1.2 Quick Examples
+Natural language (LLM mode):
+```
+show all nodes and their relationships
+create a person named Alice who is 30
+find shortest path between Alice and any Button
+```
 
-        git \\
+Direct Cypher:
+```
+MATCH (n) RETURN n;
+MATCH (n)-[r]->(m) RETURN n, r, m;
+CREATE (p:Person {name: 'Alice', age: 30}) RETURN p;
+```
 
-        postgresql-server-dev-16 \\
+### 1.3 Environment Variables (REPL)
+Put these in a `.env` (see `example.env`):
+```
+PGHOST=localhost
+PGPORT=5432
+PGDATABASE=postgres
+PGUSER=postgres
+PGPASSWORD=secret
+AGE_GRAPH=demo
 
-        ca-certificates \\
+# LLM (optional – only needed for natural language mode)
+OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL_NAME=gpt-4.1
+OPENAI_TEMPERATURE=0
+```
 
-        libreadline-dev \\
+### 1.4 Running the REPL
+Install Python deps (uses `pyproject.toml`). You can use [uv](https://github.com/astral-sh/uv) or plain pip:
+```bash
+# With uv (fast)
+uv sync
 
-        zlib1g-dev \\
+# Start REPL (LLM mode default)
+python cypher_llm_repl.py
 
-        flex \\
+or the refactored version
 
-        bison \\
+python -m cypherrepl
 
-    && rm \-rf /var/lib/apt/lists/\*
+# Execute files then drop into REPL
+python -m cypherrepl init_graph.cypher
 
-\# Install pgvector
+# Execute files only (no REPL)
+python -m cypherrepl -e init_graph.cypher more.cypher
+```
 
-RUN git clone \--branch v0.8.0 https://github.com/pgvector/pgvector.git /tmp/pgvector \\
+For advanced usage, read: `REPL-MANUAL.md`  
+For Cypher syntax help: `Cypher Cheat Sheet and How-To Guide.md`
 
-    && cd /tmp/pgvector \\
+---
 
-    && make && make install \\
+## 2. Dockerized TriStore (Postgres + AGE + pgvector)
 
-    && cd / && rm \-rf /tmp/pgvector
+The provided `Dockerfile` builds a single image bundling:
+* PostgreSQL 16
+* Apache AGE (openCypher property graph)
+* pgvector (vector similarity search)
 
-\# Install Apache AGE (latest stable)
+Initialization script: `init-tristore.sql` (creates extensions + a default graph `my_graph`).
 
-RUN git clone \--branch PG16 https://github.com/apache/age.git /tmp/age \\
+### 2.1 Build & Run
+```bash
+docker build -t tristore-pg:latest .
+docker run -d \
+  --name tristore \
+  -e POSTGRES_PASSWORD=secret \
+  -p 5432:5432 \
+  tristore-pg:latest
+```
 
-    && cd /tmp/age \\
+Defaults:
+* Host: `localhost:5432`
+* User: `postgres`
+* Password: `secret`
+* DB: `postgres`
+* Graph created at init: `my_graph`
 
-    && make PG\_CONFIG=/usr/lib/postgresql/16/bin/pg\_config && make install PG\_CONFIG=/usr/lib/postgresql/16/bin/pg\_config \\
+### 2.2 Verify Extensions
+```bash
+psql -h localhost -U postgres -d postgres
+\dx   # should list age + vector
+```
 
-    && cd / && rm \-rf /tmp/age
-
-\# Enable extensions on init
-
-COPY init-tristore.sql /docker-entrypoint-initdb.d/
-
-## 2\. **Create the initialization SQL**
-
-This file (`init-tristore.sql`) will be run automatically on the first launch.
-
-\-- Enable pgvector in all new databases   
-CREATE EXTENSION IF NOT EXISTS vector;
-
-\-- Enable Apache AGE and create a sample graph (graph name: my\_graph)   
-CREATE EXTENSION IF NOT EXISTS age;  
- LOAD 'age';
-
-\-- Set search path so AGE functions are available   
-SET search\_path \= ag\_catalog, "$user", public;
-
-\-- Now create the AGE catalog and graph   
-SELECT \* FROM create\_graph('my\_graph');
-
-\-- You can add any default tables or test data here if you wish
-
-## 3\. **Build and Run the Container**
-
-Assuming your `Dockerfile` and `init-tristore.sql` are in the same directory:
-
-docker build \-t tristore-pg:latest .
-
-docker run \-d \--name tristore \-e POSTGRES\_PASSWORD=secret \-p 5432:5432 tristore-pg:latest
-
-* The database will listen on **localhost:5432**  
-* Username: `postgres`  
-* Password: `secret`  
-* DB name: `postgres` (default)
-
-## 4\. **Test the Database**
-
-Connect (psql, DBeaver, Python, LangChain, etc.):
-
-psql \-h localhost \-U postgres
-
-\# Then, inside psql:
-
-\\dx
-
-\-- Should show vector and age extensions enabled
-
-Expected output something like
-
-                             List of installed extensions  
-  Name   | Version |   Schema   |                     Description  
-\---------+---------+------------+------------------------------------------------------  
- age     | 1.5.0   | ag\_catalog | AGE database extension  
- plpgsql | 1.0     | pg\_catalog | PL/pgSQL procedural language  
- vector  | 0.8.0   | public     | vector data type and ivfflat and hnsw access methods  
-(3 rows)
-
-Test the Age 
-
-\-- Create a node  
-SELECT \* FROM cypher('test\_graph', $$  
-  CREATE (n:Person {name: 'Alice', age: 30})  
-  RETURN n  
-$$) AS (node agtype);
-
-\-- Query nodes  
-SELECT \* FROM cypher('test\_graph', $$  
-  MATCH (n:Person) RETURN n.name, n.age  
-$$) AS (name agtype, age agtype);
-
-**Create a sample table with vector column:**
-
+### 2.3 Simple Graph & Vector Checks
+Create a node:
+```sql
+SELECT * FROM cypher('my_graph', $$CREATE (n:Person {name: 'Alice', age: 30}) RETURN n$$) AS (n agtype);
+```
+Vector table:
+```sql
 CREATE TABLE embeddings (
-
   id serial PRIMARY KEY,
-
-  content TEXT,
-
-  embedding vector(1536) \-- for OpenAI ada-002, adjust as needed
-
+  content text,
+  embedding vector(1536)
 );
+```
+Similarity search:
+```sql
+SELECT * FROM embeddings ORDER BY embedding <-> '[0.1,0.2,0.3]' LIMIT 1;
+```
 
-\-- Insert a dummy row:
+### 2.4 Using with the REPL
+Once the container is running, ensure your `.env` matches the exposed credentials, then start the REPL. Natural language queries will be rewritten into Cypher targeting the configured graph.
 
-INSERT INTO embeddings (content, embedding)
+---
 
-VALUES ('Hello world', '\[0.1, 0.2, ... up to 1536 ...\]');
-
-\-- Search by similarity:
-
-SELECT \* FROM embeddings ORDER BY embedding \<-\> '\[0.1, 0.2, ...\]' LIMIT 1;
-
-**Test graph functionality:**
-
-SELECT \* FROM cypher('my\_graph', $$
-
-  CREATE (p:Person {name: 'Alice'})-\[:KNOWS\]-\>(q:Person {name: 'Bob'})
-
-$$) as (result agtype);
-
-SELECT \* FROM cypher('my\_graph', $$
-
-  MATCH (p:Person)-\[:KNOWS\]-\>(q:Person) RETURN p, q
-
-$$) as (p agtype, q agtype);
-
-## 5\. **Python Driver Example**
-
-* Use **psycopg2** (or **asyncpg**) for SQL/vector  
-* Cypher queries via `SELECT * FROM cypher('my_graph', ...)`
-
+## 3. Python Access (Outside the REPL)
+```python
 import psycopg2
 
-conn \= psycopg2.connect(
-
-    dbname="postgres",
-
-    user="postgres",
-
-    password="secret",
-
-    host="localhost",
-
-    port=5432,
-
+conn = psycopg2.connect(
+    host="localhost", port=5432,
+    user="postgres", password="secret", dbname="postgres"
 )
+cur = conn.cursor()
 
-cur \= conn.cursor()
-
-\# Vector search example
-
-cur.execute(
-
-    "SELECT content FROM embeddings ORDER BY embedding \<-\> %s LIMIT 1",
-
-    (\[0.1, 0.2, ...\],)
-
-)
-
-print(cur.fetchone())
-
-\# Cypher query example
-
-cypher \= "MATCH (p:Person)-\[:KNOWS\]-\>(q:Person) RETURN p, q"
-
-cur.execute(
-
-    "SELECT \* FROM cypher('my\_graph', %s) as (p agtype, q agtype);",
-
-    (cypher,)
-
-)
-
+# Raw Cypher via AGE
+q = "MATCH (p:Person) RETURN p"
+cur.execute("SELECT * FROM cypher(%s, %s) AS (p agtype);", ("my_graph", q))
 print(cur.fetchall())
 
-6\. **Extensions & Notes**
+# Vector similarity
+cur.execute(
+    "SELECT content FROM embeddings ORDER BY embedding <-> %s LIMIT 1",
+    ([0.12, 0.04, 0.33],)
+)
+print(cur.fetchone())
+```
 
-* You can script more graph/table/vector setup as needed.  
-* All components are **fully open-source**.  
-* To persist data, add a volume to the container.  
-* For production, tweak `postgresql.conf` (memory, WAL, etc.).
+---
 
+## 4. Project Structure (Abbrev.)
+```
+cypherrepl/       # REPL implementation (CLI, db, LLM integration, formatting)
+cypher_llm_repl.py# Entry script
+Dockerfile        # Builds Postgres+AGE+pgvector image
+init-tristore.sql # Enables extensions & creates graph
+init_graph.cypher # Sample Cypher to preload data
+example.env       # Template env vars
+REPL-MANUAL.md    # Full REPL manual
+Cypher Cheat Sheet and How-To Guide.md
+```
 
-## License and Copyright
+---
+
+## 5. Roadmap / Ideas
+* Optional local embedding generation
+* More graph analytics helpers (degree, centrality summaries)
+* Export/import graph snapshots
+* Additional model provider abstractions
+
+Contributions / issues welcome.
+
+---
+
+## 6. License
+
+MIT License. See `LICENSE.txt` for full text.
 
 Copyright (c) 2025, Iwan van der Kleijn
 
-This project is licensed under the MIT License. See the [LICENSE](../LICENSE.txt) file for details.
+---
+
+## 7. Attribution & Notes
+All bundled components (PostgreSQL, Apache AGE, pgvector) are open source. This repo glues them together for a smooth graph + vector + LLM exploration workflow.
+
+If you build something interesting with this, let me know or open a PR to showcase examples.
+If you build something interesting with this, let me know or open a PR to showcase examples.
