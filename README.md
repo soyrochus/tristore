@@ -24,6 +24,43 @@ Natural‑language & Cypher exploration of a PostgreSQL "TriStore" (Relational +
 
 ---
 
+
+## FEATURES
+
+- Interactive Cypher REPL for PostgreSQL/AGE
+- Execute Cypher scripts from files
+- LLM integration for query generation and explanation
+- System prompt customization for LLM
+- Verbose error output for debugging
+- **Colourful Text User Interface (TUI):** Use the `-t` or `--tui` option to launch a modern, colourful Text User Interface for enhanced interaction.
+
+*Simple (default) REPL*
+![Simple REPL](images/replsimple.png)
+
+*TUI REPL (using the Textual library)*
+![Simple REPL](images/repltui.png)
+
+---
+
+## Startup Options
+
+The Cypher REPL can be started with various options to customize its behavior:
+
+```
+positional arguments:
+  files                 Cypher files to load and execute
+
+options:
+  -h, --help            show this help message and exit
+  -e, --execute         Execute files and exit (do not start REPL)
+  -t, --tui             Launch the Textual TUI instead of the standard REPL (shows a colourful Text User Interface)
+  -s, --system-prompt SYSTEM_PROMPT
+                        Path to a file containing a system prompt for the LLM
+  -v, --verbose         Enable verbose output (show stack traces on errors)
+```
+
+---
+
 ## 1. REPL Overview (Primary Focus)
 
 The Cypher LLM REPL lets you:

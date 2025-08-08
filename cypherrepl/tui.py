@@ -243,6 +243,45 @@ def run_tui(
 
             set_log_sink(_sink)
 
+            # If verbose, show logs panel and route stdout/stderr and logging to it
+            if self._verbose:
+                # Open logs view and mark as enabled
+                logs_container.display = True
+                self.log_enabled = True
+
+                # Redirect stdout/stderr so any print/logging goes to the logs panel
+                import sys, logging
+
+                class _UILogStream:
+                    def __init__(self, write_fn):
+                        self._write_fn = write_fn
+                    def write(self, data):
+                        if not data:
+                            return 0
+                        # Split on newlines to preserve line structure
+                        for part in str(data).splitlines():
+                            if part:
+                                self._write_fn(part)
+                        return len(data)
+                    def flush(self):
+                        return None
+
+                self._old_stdout, self._old_stderr = sys.stdout, sys.stderr
+                ui_stream = _UILogStream(lambda s: self._log_write(self.logs_panel, s))
+                sys.stdout = ui_stream  # type: ignore[assignment]
+                sys.stderr = ui_stream  # type: ignore[assignment]
+
+                # Reconfigure root logger to use our stream
+                root_logger = logging.getLogger()
+                for h in list(root_logger.handlers):
+                    root_logger.removeHandler(h)
+                handler = logging.StreamHandler(ui_stream)
+                handler.setLevel(logging.DEBUG)
+                formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+                handler.setFormatter(formatter)
+                root_logger.addHandler(handler)
+                root_logger.setLevel(logging.DEBUG)
+
             # Welcome message into the unified conversation panel
             self._log_write(self.chat_panel, "[cyan]▎ Hello! How can I help today?[/]")
 
@@ -255,6 +294,15 @@ def run_tui(
             set_log_sink(None)
             if self._clock_timer is not None:
                 self._clock_timer.stop()
+            # Restore stdout/stderr if we redirected them
+            try:
+                import sys
+                if hasattr(self, "_old_stdout") and self._old_stdout is not None:
+                    sys.stdout = self._old_stdout  # type: ignore[assignment]
+                if hasattr(self, "_old_stderr") and self._old_stderr is not None:
+                    sys.stderr = self._old_stderr  # type: ignore[assignment]
+            except Exception:
+                pass
 
         def _update_status(self) -> None:
             time_str = datetime.now().strftime("%H:%M")
