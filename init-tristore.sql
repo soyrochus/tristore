@@ -5,8 +5,8 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS age;
 LOAD 'age';
 
--- Example: create the AGE catalog (safe if re-run)
+-- Set search path so AGE functions are available
+SET search_path = ag_catalog, "$user", public;
+
+-- Now create the AGE catalog and graph
 SELECT * FROM create_graph('my_graph');
-
--- You can add any default tables or test data here if you wish
-
