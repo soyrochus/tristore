@@ -1,32 +1,61 @@
+Add a new option to the cypherrepl module 
 
-You are a senior Python engineer. 
+Only change the cypherrepl module
 
-Refactor the existing tristor/cypher_llm_repl.py into a new modile cypherrepl (see down for a suggested structure).
+This option should be -t --tui
 
-DO NOT CHANGE the cypher_llm_repl.py ! 
-RECREATE the repl into this new module
+It should launch an alternative REPL created with the Textual library. Use the latest version.
 
-It should use 100% of funcionality of cypher_llm_repl.py
-the same command line parameters, commands etc
+Use colours where sensible. 
 
-# Packaging & Entry Point
-- Structure the project as an installable package:
-  cypherrepl/
-    __init__.py
-    __main__.py         # `python -m cypherrepl` entrypoint
-    cli.py              # argument parsing, boot mode selection (headless vs repl_
-    config.py           # env + defaults + typed settings
-    db.py               # DB connection, AGE init, cypher execution, column inference
-    llm.py              # LLM provider factory, tool wiring, system prompt
-    cypher.py           # query sanitization, statement splitting, smart column logic
-    logging_utils.py    # log setup, VerboseCallback, prefixed logging helpers
-    
-- `__main__.py` should delegate to `cli.main()`.
-- Keep the code self-contained (no placeholders), same behaviors/logic as before, but surface them via repl.
+Meaning: a TUI similar to applications like htop etc. 
 
 
-Deliver the full package code with the structure above, ready to run with:
-  python -m cypherrepl
-and headless mode with:
-  python -m cypherrepl -e path/to/file.cypher
+Here are visual representation of two modes. Minimal commands, clear booleans, model shown only if LLM is ON.
+
+# 1) Chat TUI (LLM left, You right) — compact
+
+This is the default view
+
 ```
++──────────────────────────────────────────────────────────────────────────────+
+|                               CONVERSATION                                   |
++──────────────────────────────────────────────────────────────────────────────+
+| LLM / Assistant (60%)                         | You / Question (40%)         |
+|───────────────────────────────────────────────┼──────────────────────────────|
+| ▎Hello! How can I help today?                 |                              |
+| ▎I can assist with…                           | ▎What can you do?            |
+| ▎Here’s a code sample…                        | ▎Compare X vs Y…             |
+| … older messages above …                      | … older messages above …     |
++───────────────────────────────────────────────┼──────────────────────────────+
+| INPUT — Multi-line editor                                                    |
+| > Your message here…  (Enter=Send, Shift+Enter=New line)                     |
+| Commands: \q Quit  •  \log [on|off]  •  \llm [on|off]  •  \h Help            |
+| Status: Connected | LLM: ON  | Model: gpt-X | Log: OFF | Time: 19:34         |
++──────────────────────────────────────────────────────────────────────────────+
+```
+
+# 2) Chat + Right-hand Logs — compact
+
+This view should be enabled when \log on
+
+```
++──────────────────────────────────────────────────────────────────────────────+
+|                                  CHAT + LOGS                                 |
++───────────────────────────────┬──────────────────────────────────────────────+
+|  CONVERSATION                 │  LOGS (opened with \log on)                  |
+|  LLM / Assistant   |  You     │──────────────────────────────────────────────|
+|────────────────────┼──────────│ [12:03:11] INFO  Loaded profile "default"    |
+| ▎Answer …          | ▎Q …     │ [12:03:12] DEBUG prompt_len=948              |
+| ▎Follow-up …       | ▎Reply   │ [12:03:13] CALL  tool.search("foo")          |
+| … history …        | … … …    │ [12:03:14] WARN  nearing rate-limit          |
++────────────────────┼──────────┼──────────────────────────────────────────────+
+|  INPUT — Multi-line editor    │  (auto-scroll; \log off to close)            |
+| > Draft message … (Enter=Send, Shift+Enter=New line)                         |
+| Commands: \q Quit  •  \log [on|off]  •  \llm [on|off]  •  \h Help            |
+| Status: Connected | LLM: OFF | Model: -     | Log: ON  | Time: 19:34         |
++──────────────────────────────────────────────────────────────────────────────+
+```
+
+Resuse all functions, commands, structure etc. the TUI should be optional 
+
