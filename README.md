@@ -9,6 +9,8 @@
 
 Natural‑language & Cypher exploration of a PostgreSQL "TriStore" (Relational + Graph + Vectors) powered by Apache AGE and pgvector.
 
+> **NOTE**: The current implementation concentrates on interactive exploration of the graph / vector store layer (PostgreSQL + Apache AGE via Cypher). Planned extensions include integrated embedding generation and additional "noSQL" style document / key-value context features to evolve this into a broader multi‑modal context engineering tool.
+
 **Components in this repo**
 
 | Part | What it is | Folder / File |
