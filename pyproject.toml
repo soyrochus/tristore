@@ -4,7 +4,15 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "langchain>=0.3.27",
+    "langchain-core>=0.3.74",
+    "langchain-openai>=0.3.29",
+    "lark>=1.2.2",
+    "prompt-toolkit>=3.0.51",
+    "psycopg2-binary>=2.9.10",
+    "python-dotenv>=1.1.1",
+]
 
 [dependency-groups]
 dev = [
