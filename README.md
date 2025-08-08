@@ -38,12 +38,12 @@ The Cypher LLM REPL lets you:
 See the full manual in `REPL-MANUAL.md` for screenshots, examples, tips.
 
 ### 1.1 Key Commands (inline recap)
-| Command | Description |
+| Command |  Description |
 |---------|-------------|
-| `\q` | Quit |
-| `\h` | Help summary |
-| `\llm on|off` | Toggle natural language mode |
-| `\log on|off` | Toggle verbose interaction logging |
+| `\q` | Quit the REPL |
+| `\log [on \| off]` | Toggle logging of LLM and DB interactions |
+| `\llm [on \|off]` | Toggle LLM usage (off executes Cypher directly) |
+| `\h` | Show this help message |
 
 ### 1.2 Quick Examples
 Natural language (LLM mode):

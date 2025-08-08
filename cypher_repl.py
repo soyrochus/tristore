@@ -110,7 +110,7 @@ def main():
         
         # Start REPL (either after file execution or if no files provided)
         if not args.files:
-            print("Enter adds a new line. Esc+Enter executes your Cypher query.")
+            print("Enter adds a new line. Esc+Enter executes your Natural Language or Cypher query.")
         print("Type \\q to quit. End queries with a semicolon (;).\n")
 
         session = PromptSession(

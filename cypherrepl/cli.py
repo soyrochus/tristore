@@ -111,7 +111,7 @@ def main() -> None:
 
         # REPL intro
         if not args.files:
-            print("Enter adds a new line. Esc+Enter executes your Cypher query.")
+            print("Enter adds a new line. Esc+Enter executes your  Natural Language or Cypher query.")
         print("Use Ctrl+D or \\q to quit. \\h for list of commands.\n")
 
         session = PromptSession(history=FileHistory(settings.history_file), multiline=True)
