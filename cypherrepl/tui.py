@@ -113,6 +113,9 @@ def run_tui(
 
         BINDINGS = [
             Binding("enter", "send", "Send", show=False),
+            # History navigation mapped to Alt+Up / Alt+Down (leave Ctrl+P for palette)
+            Binding("alt+up", "history_prev", "Prev", show=False),
+            Binding("alt+down", "history_next", "Next", show=False),
         ]
 
         log_enabled = reactive(False)
@@ -199,7 +202,7 @@ def run_tui(
 
             with Container(classes="footer"):
                 self.commands = Static(
-                    r"Commands: \\q Quit  •  \\log [on|off]  •  \\llm [on|off]  •  \\h Help",
+                    r"Commands: \\q Quit  •  \\log [on|off]  •  \\llm [on|off]  •  \\h Help  •  Alt+Up Prev  •  Alt+Down Next  •  Shift+Enter New line  •  Esc then Enter Send",
                     classes="commands",
                 )
                 yield self.commands
@@ -316,6 +319,67 @@ def run_tui(
         def _append_log(self, line: str) -> None:
             self._log_write(self.logs_panel, line)
 
+        # --- History management ---
+        def _init_history(self) -> None:
+            if not hasattr(self, "_history"):
+                self._history: List[str] = []
+                self._hist_pos: Optional[int] = None
+
+        def _history_add(self, entry: str) -> None:
+            self._init_history()
+            entry = entry.rstrip("\n")
+            if not entry:
+                return
+            if self._history and self._history[-1] == entry:
+                # Avoid consecutive duplicates
+                self._hist_pos = None
+                return
+            self._history.append(entry)
+            self._hist_pos = None
+
+        def _history_prev(self) -> None:
+            self._init_history()
+            if not self._history:
+                return
+            if self._hist_pos is None:
+                self._hist_pos = len(self._history) - 1
+            else:
+                self._hist_pos = max(0, self._hist_pos - 1)
+            try:
+                self.input.text = self._history[self._hist_pos]
+                # Move cursor to end if supported
+                if hasattr(self.input, "cursor_position"):
+                    try:
+                        self.input.cursor_position = len(self.input.text)  # type: ignore[attr-defined]
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        def _history_next(self) -> None:
+            self._init_history()
+            if not self._history:
+                return
+            if self._hist_pos is None:
+                # Already at the end; clear input
+                self.input.text = ""
+                return
+            if self._hist_pos < len(self._history) - 1:
+                self._hist_pos += 1
+                try:
+                    self.input.text = self._history[self._hist_pos]
+                    if hasattr(self.input, "cursor_position"):
+                        try:
+                            self.input.cursor_position = len(self.input.text)  # type: ignore[attr-defined]
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            else:
+                # Past the last entry -> clear and reset pos
+                self._hist_pos = None
+                self.input.text = ""
+
         # --- Compatibility helpers for Textual Log/TextLog/RichLog ---
         def _make_log_widget(self, classes: str):
             # Try to construct with nicest args supported by the current widget
@@ -417,7 +481,8 @@ def run_tui(
                     "  \\h              Show this help message\n"
                 )
                 for line in help_text.splitlines():
-                    self._append_log(f"[INFO] {line}")
+                    # Show help in the main conversation panel (not the logs panel)
+                    self._log_write(self.chat_panel, f"[cyan]▎ {line}[/]")
                 return
             if stripped.startswith("\\log"):
                 parts = stripped.split(maxsplit=1)
@@ -483,6 +548,9 @@ def run_tui(
             for line in text.splitlines():
                 self._log_write(self.chat_panel, f"[green]▎ {line}[/]")
 
+            # Add to history
+            self._history_add(text)
+
             if self.llm_enabled:
                 if self._agent_executor is None:
                     self._log_write(
@@ -523,6 +591,19 @@ def run_tui(
         def action_send(self) -> None:
             # Kept for completeness; input handles Enter logic.
             pass
+
+        # Explicit actions to handle history navigation at the App level
+        def action_history_prev(self) -> None:
+            try:
+                self._history_prev()
+            except Exception:
+                pass
+
+        def action_history_next(self) -> None:
+            try:
+                self._history_next()
+            except Exception:
+                pass
 
     # Run app
     CypherReplTUI().run()
